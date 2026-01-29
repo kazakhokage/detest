@@ -32,7 +32,7 @@
 4. **DWH** → Add surrogate keys, implement SCD, optimize for analytics
 
 
-## 📦 Prerequisites
+## Prerequisites
 
 - **Docker** 20.10+
 - **Docker Compose** 2.0+
@@ -145,7 +145,7 @@ SELECT * FROM vw_recent_etl_runs;
   - Optimized for analytics
   - ETL logging infrastructure
 
-## 🔄 ETL Pipeline
+##  ETL Pipeline
 
 ### High Water Mark Mechanism
 ```python
@@ -189,7 +189,7 @@ SET column = EXCLUDED.column;
 └──────────────┘
 ```
 
-## 💡 Usage
+## Usage
 
 ### Running Stored Procedures
 ```sql
@@ -229,7 +229,7 @@ SELECT * FROM vw_etl_performance_summary;
 SELECT * FROM etl_logs WHERE status = 'FAILED' ORDER BY start_time DESC;
 ```
 
-## 📊 Monitoring
+## Monitoring
 
 ### Airflow UI
 - **DAG Runs**: Monitor execution history
@@ -265,47 +265,4 @@ docker exec dwh-db pg_isready
 # Airflow status
 curl http://localhost:8080/health
 ```
-
-## 🐛 Troubleshooting
-
-### Containers not starting
-```bash
-# Check logs
-docker-compose logs -f
-
-# Restart services
-docker-compose restart
-
-# Clean restart
-docker-compose down -v
-docker-compose up -d
-```
-
-### Airflow DAG not appearing
-```bash
-# Check for syntax errors
-docker exec airflow-scheduler airflow dags list
-
-# Restart scheduler
-docker-compose restart airflow-scheduler
-```
-
-### Database connection issues
-```bash
-# Test connection
-docker exec -it dwh-db psql -U postgres -d dwh -c "SELECT 1;"
-
-# Check network
-docker network inspect data-engineer-network
-```
-
-### ETL failures
-```sql
--- Check error logs
-SELECT * FROM etl_logs WHERE status = 'FAILED';
-
--- View detailed error
-SELECT error_message FROM etl_logs WHERE log_id = <id>;
-```
-
 
