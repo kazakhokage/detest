@@ -1,13 +1,3 @@
-## Overview
-
-This repo shows a solution to tech task:
-- **Multi-layer data warehouse** (Operational, MRR, STG, DWH)
-- **Complete ETL pipeline** with Apache Airflow
-- **Delta loading** with High Water Mark mechanism
-- **Slowly Changing Dimensions** (SCD Type 2)
-- **Comprehensive logging** and monitoring
-- **Idempotent operations** for data integrity
-
 ##  Architecture
 
 ```
@@ -53,7 +43,7 @@ This repo shows a solution to tech task:
 
 ### 1. Clone and Navigate
 ```bash
-cd data-engineer-project
+cd detest
 ```
 
 ### 2. Start All Services
