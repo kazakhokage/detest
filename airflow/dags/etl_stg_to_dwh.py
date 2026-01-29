@@ -5,11 +5,13 @@ from datetime import datetime, timedelta, date
 import sys
 import os
 
+# Add utils path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
 from utils.config import DB_CONFIGS
 from utils.db_utils import get_db_connection, log_etl_start, log_etl_end
 
+# DAG defaults
 default_args = {
     'owner': 'yessen',
     'depends_on_past': False,
@@ -25,12 +27,13 @@ def load_date_dimension(**context):
     process_name = 'stg_to_dwh_date_dimension'
     
     with get_db_connection(DB_CONFIGS['dwh']) as dwh_conn:
+        # Start logging
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
             cursor = dwh_conn.cursor()
             
-            # Generate dates for last 2 years and next 1 year
+            # Generate date range
             cursor.execute("""
                 INSERT INTO dwh_dim_date (
                     date_key, date, year, quarter, month, month_name,
@@ -59,10 +62,12 @@ def load_date_dimension(**context):
             rows_affected = cursor.rowcount
             cursor.close()
             
+            # Log success
             log_etl_end(log_id, 'SUCCESS', dwh_conn, rows_affected, rows_affected)
             print(f"Loaded {rows_affected} dates to DWH")
             
         except Exception as e:
+            # Log failure
             log_etl_end(log_id, 'FAILED', dwh_conn, 0, 0, error_message=str(e))
             raise
 
@@ -77,7 +82,7 @@ def load_customers_to_dwh(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
-            # Get customers from STG
+            # Extract from STG
             stg_cursor = stg_conn.cursor()
             stg_cursor.execute("""
                 SELECT customer_id, customer_name, country
@@ -89,7 +94,7 @@ def load_customers_to_dwh(**context):
             dwh_cursor = dwh_conn.cursor()
             
             for customer_id, name, country in customers:
-                # Check if customer exists
+                # Check existing record
                 dwh_cursor.execute("""
                     SELECT customer_key, customer_name, country
                     FROM dwh_dim_customers
@@ -99,7 +104,7 @@ def load_customers_to_dwh(**context):
                 existing = dwh_cursor.fetchone()
                 
                 if existing is None:
-                    # New customer - insert
+                    # Insert new customer
                     dwh_cursor.execute("""
                         INSERT INTO dwh_dim_customers (
                             customer_id, customer_name, country, valid_from
@@ -108,15 +113,14 @@ def load_customers_to_dwh(**context):
                     """, (customer_id, name, country, date.today()))
                     
                 elif existing[1] != name or existing[2] != country:
-                    # Changed customer - SCD Type 2
-                    # 1. Close old record
+                    # SCD Type 2: Close old
                     dwh_cursor.execute("""
                         UPDATE dwh_dim_customers
                         SET valid_to = %s, is_current = FALSE
                         WHERE customer_id = %s AND is_current = TRUE
                     """, (date.today(), customer_id))
                     
-                    # 2. Insert new record
+                    # Insert new version
                     dwh_cursor.execute("""
                         INSERT INTO dwh_dim_customers (
                             customer_id, customer_name, country, valid_from
@@ -145,6 +149,7 @@ def load_products_to_dwh(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
+            # Extract from STG
             stg_cursor = stg_conn.cursor()
             stg_cursor.execute("""
                 SELECT product_id, product_name, product_group
@@ -156,6 +161,7 @@ def load_products_to_dwh(**context):
             dwh_cursor = dwh_conn.cursor()
             
             for product_id, name, group in products:
+                # Check existing record
                 dwh_cursor.execute("""
                     SELECT product_key, product_name, product_group
                     FROM dwh_dim_products
@@ -165,6 +171,7 @@ def load_products_to_dwh(**context):
                 existing = dwh_cursor.fetchone()
                 
                 if existing is None:
+                    # Insert new product
                     dwh_cursor.execute("""
                         INSERT INTO dwh_dim_products (
                             product_id, product_name, product_group, valid_from
@@ -173,12 +180,14 @@ def load_products_to_dwh(**context):
                     """, (product_id, name, group, date.today()))
                     
                 elif existing[1] != name or existing[2] != group:
+                    # SCD Type 2: Close old
                     dwh_cursor.execute("""
                         UPDATE dwh_dim_products
                         SET valid_to = %s, is_current = FALSE
                         WHERE product_id = %s AND is_current = TRUE
                     """, (date.today(), product_id))
                     
+                    # Insert new version
                     dwh_cursor.execute("""
                         INSERT INTO dwh_dim_products (
                             product_id, product_name, product_group, valid_from
@@ -207,6 +216,7 @@ def load_sales_to_dwh(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
+            # Extract from STG
             stg_cursor = stg_conn.cursor()
             stg_cursor.execute("""
                 SELECT sale_id, customer_id, product_id, quantity, transaction_date
@@ -234,6 +244,7 @@ def load_sales_to_dwh(**context):
                 if customer_key and product_key:
                     date_key = int(trans_date.strftime('%Y%m%d'))
                     
+                    # Load fact record
                     dwh_cursor.execute("""
                         INSERT INTO dwh_fact_sales (
                             customer_key, product_key, date_key, original_sale_id,
@@ -272,18 +283,14 @@ def update_hwm_after_dwh_load(**context):
             from datetime import datetime
             from utils.db_utils import update_high_water_mark
             
-            # Get HWM values
             ti = context['ti']
-            
-            # Try to get HWM values from previous DAG run
-            
             cursor = op_conn.cursor()
             
-            # Get max transaction_date from each table
+            # Get max from DWH
             with get_db_connection(DB_CONFIGS['dwh']) as dwh_conn_check:
                 dwh_cursor = dwh_conn_check.cursor()
                 
-                # Get max dates from DWH
+                # Update sales HWM
                 dwh_cursor.execute("""
                     SELECT MAX(transaction_timestamp) FROM dwh_fact_sales
                 """)
@@ -293,7 +300,6 @@ def update_hwm_after_dwh_load(**context):
                     update_high_water_mark('sales', max_sales_date, op_conn)
                     print(f"Updated HWM for sales: {max_sales_date}")
                 
-                # For customers and products, use current timestamp
                 dwh_cursor.close()
             
             cursor.close()
@@ -306,11 +312,12 @@ def update_hwm_after_dwh_load(**context):
             raise
 
 
+# Define DAG
 with DAG(
     'etl_stg_to_dwh',
     default_args=default_args,
     description='Load final DWH from STG with surrogate keys and SCD',
-    schedule_interval='30 * * * *',  # 30 minutes after STG load
+    schedule_interval='30 * * * *',
     catchup=False,
     tags=['etl', 'stg', 'dwh', 'final'],
 ) as dag:
@@ -344,4 +351,5 @@ with DAG(
     
     end = DummyOperator(task_id='end')
     
+    # Task dependencies
     start >> load_date_dim >> [load_customers, load_products] >> load_sales >> update_hwm >> end

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import sys
 import os
 
-
+# Add utils path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
 from utils.config import DB_CONFIGS
@@ -17,7 +17,7 @@ from utils.db_utils import (
     update_high_water_mark
 )
 
-# DAG default arguments
+# DAG defaults
 default_args = {
     'owner': 'yessen',
     'depends_on_past': False,
@@ -37,13 +37,14 @@ def extract_customers_to_mrr(**context):
          get_db_connection(DB_CONFIGS['mrr']) as mrr_conn, \
          get_db_connection(DB_CONFIGS['dwh']) as dwh_conn:
         
+        # Start logging
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
-            # Get high water mark
+            # Get HWM
             hwm = get_high_water_mark('customers', op_conn)
             
-            # Extract delta 
+            # Extract delta
             op_cursor = op_conn.cursor()
             op_cursor.execute(
                 """
@@ -63,7 +64,7 @@ def extract_customers_to_mrr(**context):
                 log_etl_end(log_id, 'SUCCESS', dwh_conn, 0, 0)
                 return
             
-            # Insert into MRR 
+            # Load to MRR
             mrr_cursor = mrr_conn.cursor()
             mrr_cursor.executemany(
                 """
@@ -80,7 +81,7 @@ def extract_customers_to_mrr(**context):
             rows_affected = mrr_cursor.rowcount
             mrr_cursor.close()
             
-            # Store new HWM 
+            # Store new HWM
             new_hwm = max(r[3] for r in records)
             context['ti'].xcom_push(key='customers_hwm', value=new_hwm.isoformat())
             
@@ -90,6 +91,7 @@ def extract_customers_to_mrr(**context):
             print(f"Successfully loaded {rows_affected} customers to MRR")
             
         except Exception as e:
+            # Log failure
             log_etl_end(log_id, 'FAILED', dwh_conn, 0, 0, error_message=str(e))
             raise
 
@@ -105,10 +107,10 @@ def extract_products_to_mrr(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
-            # Get high water mark
+            # Get HWM
             hwm = get_high_water_mark('products', op_conn)
             
-            # Extract delta 
+            # Extract delta
             op_cursor = op_conn.cursor()
             op_cursor.execute(
                 """
@@ -128,7 +130,7 @@ def extract_products_to_mrr(**context):
                 log_etl_end(log_id, 'SUCCESS', dwh_conn, 0, 0)
                 return
             
-            # Insert into MRR 
+            # Load to MRR
             mrr_cursor = mrr_conn.cursor()
             mrr_cursor.executemany(
                 """
@@ -145,7 +147,7 @@ def extract_products_to_mrr(**context):
             rows_affected = mrr_cursor.rowcount
             mrr_cursor.close()
             
-            # Store new HWM 
+            # Store new HWM
             new_hwm = max(r[3] for r in records)
             context['ti'].xcom_push(key='products_hwm', value=new_hwm.isoformat())
             
@@ -170,7 +172,7 @@ def extract_sales_to_mrr(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
-            # Get high water mark
+            # Get HWM
             hwm = get_high_water_mark('sales', op_conn)
             
             # Extract delta
@@ -193,7 +195,7 @@ def extract_sales_to_mrr(**context):
                 log_etl_end(log_id, 'SUCCESS', dwh_conn, 0, 0)
                 return
             
-            # Insert into MRR
+            # Load to MRR
             mrr_cursor = mrr_conn.cursor()
             mrr_cursor.executemany(
                 """
@@ -212,7 +214,7 @@ def extract_sales_to_mrr(**context):
             rows_affected = mrr_cursor.rowcount
             mrr_cursor.close()
             
-            # Store new HWM 
+            # Store new HWM
             new_hwm = max(r[4] for r in records)
             context['ti'].xcom_push(key='sales_hwm', value=new_hwm.isoformat())
             
@@ -231,7 +233,7 @@ with DAG(
     'etl_operational_to_mrr',
     default_args=default_args,
     description='Extract data from Operational DB to MRR layer with delta loading',
-    schedule_interval='0 * * * *',  # Every hour
+    schedule_interval='0 * * * *',
     catchup=False,
     tags=['etl', 'operational', 'mrr', 'delta-load'],
 ) as dag:
@@ -258,5 +260,5 @@ with DAG(
     
     end = DummyOperator(task_id='end')
     
-    # Set task dependencies
+    # Task dependencies
     start >> [extract_customers, extract_products] >> extract_sales >> end

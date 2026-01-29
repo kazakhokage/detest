@@ -5,11 +5,13 @@ from datetime import datetime, timedelta
 import sys
 import os
 
+# Add utils path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
 from utils.config import DB_CONFIGS
 from utils.db_utils import get_db_connection, log_etl_start, log_etl_end
 
+# DAG defaults
 default_args = {
     'owner': 'yessen',
     'depends_on_past': False,
@@ -28,10 +30,11 @@ def transform_customers_to_stg(**context):
          get_db_connection(DB_CONFIGS['stg']) as stg_conn, \
          get_db_connection(DB_CONFIGS['dwh']) as dwh_conn:
         
+        # Start logging
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
-            # Get data from MRR
+            # Extract from MRR
             mrr_cursor = mrr_conn.cursor()
             mrr_cursor.execute("SELECT id, name, country FROM mrr_dim_customers")
             records = mrr_cursor.fetchall()
@@ -42,7 +45,7 @@ def transform_customers_to_stg(**context):
                 log_etl_end(log_id, 'SUCCESS', dwh_conn, 0, 0)
                 return
             
-            # Transform and load to STG
+            # Transform and load
             stg_cursor = stg_conn.cursor()
             stg_cursor.executemany("""
                 INSERT INTO stg_dim_customers (
@@ -62,10 +65,12 @@ def transform_customers_to_stg(**context):
             rows_affected = stg_cursor.rowcount
             stg_cursor.close()
             
+            # Log success
             log_etl_end(log_id, 'SUCCESS', dwh_conn, rows_affected, rows_affected)
             print(f"Transformed {rows_affected} customers to STG")
             
         except Exception as e:
+            # Log failure
             log_etl_end(log_id, 'FAILED', dwh_conn, 0, 0, error_message=str(e))
             raise
 
@@ -81,6 +86,7 @@ def transform_products_to_stg(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
+            # Extract from MRR
             mrr_cursor = mrr_conn.cursor()
             mrr_cursor.execute("SELECT id, name, group_name FROM mrr_dim_products")
             records = mrr_cursor.fetchall()
@@ -91,6 +97,7 @@ def transform_products_to_stg(**context):
                 log_etl_end(log_id, 'SUCCESS', dwh_conn, 0, 0)
                 return
             
+            # Transform and load
             stg_cursor = stg_conn.cursor()
             stg_cursor.executemany("""
                 INSERT INTO stg_dim_products (
@@ -129,6 +136,7 @@ def transform_sales_to_stg(**context):
         log_id = log_etl_start(process_name, dwh_conn)
         
         try:
+            # Extract from MRR
             mrr_cursor = mrr_conn.cursor()
             mrr_cursor.execute("""
                 SELECT id, customer_id, product_id, qty, transaction_date
@@ -142,6 +150,7 @@ def transform_sales_to_stg(**context):
                 log_etl_end(log_id, 'SUCCESS', dwh_conn, 0, 0)
                 return
             
+            # Transform with dates
             stg_cursor = stg_conn.cursor()
             stg_cursor.executemany("""
                 INSERT INTO stg_fact_sales (
@@ -184,6 +193,7 @@ def transform_sales_to_stg(**context):
             raise
 
 
+# Define DAG
 with DAG(
     'etl_mrr_to_stg',
     default_args=default_args,
@@ -212,4 +222,5 @@ with DAG(
     
     end = DummyOperator(task_id='end')
     
+    # DAG dependencies
     start >> [transform_customers, transform_products] >> transform_sales >> end
