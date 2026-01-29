@@ -399,24 +399,5 @@ FROM high_water_mark
 ORDER BY age DESC;
 ```
 
----
 
-## Future Enhancements
 
-1. **Data Quality Framework**: Add data validation rules
-2. **Incremental Updates**: Implement CDC (Change Data Capture)
-3. **Partitioning**: Partition large fact tables by date
-4. **Aggregation Tables**: Pre-compute common queries
-5. **Data Lineage**: Track data flow through layers
-6. **Alerting**: Set up email/Slack notifications for failures
-7. **Testing**: Add unit tests for transformations
-8. **CI/CD**: Automate deployment with GitHub Actions
-
----
-
-## References
-
-- [Kimball Dimensional Modeling](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Apache Airflow Best Practices](https://airflow.apache.org/docs/apache-airflow/stable/best-practices.html)
-- [Data Warehouse Toolkit by Ralph Kimball](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/books/)
