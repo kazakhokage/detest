@@ -112,7 +112,36 @@ SELECT COUNT(*) FROM dwh_dim_products WHERE is_current = TRUE;
 # Check ETL logs
 SELECT * FROM vw_recent_etl_runs;
 ```
+### 8. For DB instances:
+```bash
+Operational DB:
+  Host: localhost
+  Port: 5432
+  Database: operational
+  User: postgres
+  Password: postgres
 
+MRR DB:
+  Host: localhost
+  Port: 5433
+  Database: mrr
+  User: postgres
+  Password: postgres
+
+STG DB:
+  Host: localhost
+  Port: 5434
+  Database: stg
+  User: postgres
+  Password: postgres
+
+DWH DB:
+  Host: localhost
+  Port: 5435
+  Database: dwh
+  User: postgres
+  Password: postgres
+```
 
 ## Database Layers
 
