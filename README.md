@@ -1,0 +1,401 @@
+
+## 📋 Table of Contents
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Database Layers](#database-layers)
+- [ETL Pipeline](#etl-pipeline)
+- [Usage](#usage)
+- [Monitoring](#monitoring)
+- [Troubleshooting](#troubleshooting)
+
+## 🎯 Overview
+
+This repo shows a solution to tech task:
+- **Multi-layer data warehouse** (Operational, MRR, STG, DWH)
+- **Complete ETL pipeline** with Apache Airflow
+- **Delta loading** with High Water Mark mechanism
+- **Slowly Changing Dimensions** (SCD Type 2)
+- **Comprehensive logging** and monitoring
+- **Idempotent operations** for data integrity
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐
+│  Operational DB │  ← OLTP (Source System)
+│    (PostgreSQL) │
+└────────┬────────┘
+         │ Delta Load (High Water Mark)
+         ↓
+┌─────────────────┐
+│      MRR        │  ← Bronze/Raw Layer
+│    (PostgreSQL) │     (Minimal transformation)
+└────────┬────────┘
+         │ Data Cleaning & Transformation
+         ↓
+┌─────────────────┐
+│      STG        │  ← Silver/Staging Layer
+│    (PostgreSQL) │     (Business rules applied)
+└────────┬────────┘
+         │ Surrogate Keys & SCD Type 2
+         ↓
+┌─────────────────┐
+│      DWH        │  ← Gold/Analytics Layer
+│    (PostgreSQL) │     (Final warehouse)
+└─────────────────┘
+```
+
+### Data Flow
+1. **Operational** → Extract via delta loading (HWM)
+2. **MRR** → Mirror raw data with timestamps
+3. **STG** → Clean, standardize, derive attributes
+4. **DWH** → Add surrogate keys, implement SCD, optimize for analytics
+
+## ✨ Features
+
+### ETL Capabilities
+- ✅ Delta loading with High Water Mark
+- ✅ Idempotent operations (safe reruns)
+- ✅ Slowly Changing Dimensions (SCD Type 2)
+- ✅ Surrogate key management
+- ✅ Comprehensive error handling
+- ✅ Centralized ETL logging
+- ✅ Fact and dimension table patterns
+
+### Database Features
+- ✅ Multi-layer architecture (4 databases)
+- ✅ Proper indexing for performance
+- ✅ Foreign key constraints
+- ✅ Stored procedures with cursors
+- ✅ Analytical functions (KPI calculations)
+- ✅ Date dimension table
+
+### DevOps
+- ✅ Docker Compose for easy deployment
+- ✅ Apache Airflow for orchestration
+- ✅ Automated schema creation
+- ✅ Sample data generation
+- ✅ Health checks and monitoring
+
+## 📦 Prerequisites
+
+- **Docker** 20.10+
+- **Docker Compose** 2.0+
+- **Python** 3.10+ (for scripts)
+- **PostgreSQL Client** (optional, for manual queries)
+
+## 🚀 Quick Start
+
+### 1. Clone and Navigate
+```bash
+cd data-engineer-project
+```
+
+### 2. Start All Services
+```bash
+docker-compose up -d
+```
+
+Wait for all containers to be healthy (~2 minutes):
+```bash
+docker-compose ps
+```
+
+### 3. Initialize Database Schemas
+```bash
+# Operational DB
+docker exec -i operational-db psql -U postgres -d operational < sql/operational/01_create_schema.sql
+
+# MRR DB
+docker exec -i mrr-db psql -U postgres -d mrr < sql/mrr/01_create_schema.sql
+
+# STG DB
+docker exec -i stg-db psql -U postgres -d stg < sql/stg/01_create_schema.sql
+
+# DWH DB (all scripts)
+docker exec -i dwh-db psql -U postgres -d dwh < sql/dwh/01_create_schema.sql
+docker exec -i dwh-db psql -U postgres -d dwh < sql/dwh/02_create_etl_logs.sql
+docker exec -i dwh-db psql -U postgres -d dwh < sql/dwh/03_stored_procedures.sql
+docker exec -i dwh-db psql -U postgres -d dwh < sql/dwh/04_functions.sql
+```
+
+### 4. Generate Sample Data
+```bash
+# Install Python dependencies
+pip install psycopg2-binary faker
+
+# Run data seeding script
+python scripts/seed_data.py
+```
+
+### 5. Access Airflow UI
+```bash
+# Open browser to:
+http://localhost:8080
+
+# Login credentials:
+Username: admin
+Password: admin
+```
+
+### 6. Run ETL Pipeline
+
+**Run Master Pipeline**
+- Enable and trigger: `master_etl_pipeline`
+- This runs all stages sequentially
+
+### 7. Verify Results
+```bash
+# Check DWH data
+docker exec -it dwh-db psql -U postgres -d dwh
+
+# Run verification queries
+SELECT COUNT(*) FROM dwh_fact_sales;
+SELECT COUNT(*) FROM dwh_dim_customers WHERE is_current = TRUE;
+SELECT COUNT(*) FROM dwh_dim_products WHERE is_current = TRUE;
+
+# Check ETL logs
+SELECT * FROM vw_recent_etl_runs;
+```
+
+## 📁 Project Structure
+
+```
+data-engineer-project/
+├── docker-compose.yml          # Docker orchestration
+├── .env                        # Environment variables
+├── README.md                   # This file
+│
+├── sql/                        # Database schemas
+│   ├── operational/            # Source system
+│   │   └── 01_create_schema.sql
+│   ├── mrr/                    # Raw layer
+│   │   └── 01_create_schema.sql
+│   ├── stg/                    # Staging layer
+│   │   └── 01_create_schema.sql
+│   └── dwh/                    # Data warehouse
+│       ├── 01_create_schema.sql
+│       ├── 02_create_etl_logs.sql
+│       ├── 03_stored_procedures.sql
+│       └── 04_functions.sql
+│
+├── airflow/
+│   ├── dags/                   # Airflow DAGs
+│   │   ├── etl_operational_to_mrr.py
+│   │   ├── etl_mrr_to_stg.py
+│   │   ├── etl_stg_to_dwh.py
+│   │   ├── master_etl_pipeline.py
+│   │   ├── tasks/              # Task definitions
+│   │   └── utils/              # Shared utilities
+│   │       ├── config.py
+│   │       └── db_utils.py
+│   ├── logs/                   # Airflow logs
+│   └── plugins/                # Custom plugins
+│
+├── scripts/                    # Utility scripts
+│   └── seed_data.py           # Data generation
+│
+└── docs/                       # Documentation
+    └── architecture.md         # Architecture details
+```
+
+## 🗄️ Database Layers
+
+### 1. Operational DB (OLTP)
+**Purpose**: Transactional source system
+- **Tables**: customers, products, sales
+- **Pattern**: Normalized for transactional efficiency
+- **Updates**: Real-time via applications
+
+### 2. MRR (Mirror/Raw)
+**Purpose**: Raw data mirror with minimal transformation
+- **Tables**: mrr_fact_sales, mrr_dim_customers, mrr_dim_products
+- **Pattern**: Fact/Dimension naming convention
+- **Updates**: Delta loads via High Water Mark
+
+### 3. STG (Staging)
+**Purpose**: Cleaned and standardized data
+- **Tables**: stg_fact_sales, stg_dim_customers, stg_dim_products
+- **Transformations**:
+  - Data cleaning (trim, standardize)
+  - Derived columns (date parts)
+  - Business rule application
+
+### 4. DWH (Data Warehouse)
+**Purpose**: Final analytical warehouse
+- **Tables**: dwh_fact_sales, dwh_dim_*, dwh_dim_date
+- **Features**:
+  - Surrogate keys
+  - SCD Type 2 for dimensions
+  - Optimized for analytics
+  - ETL logging infrastructure
+
+## 🔄 ETL Pipeline
+
+### High Water Mark Mechanism
+```python
+# Track last extraction timestamp
+1. Read HWM from high_water_mark table
+2. Extract records WHERE transaction_date > HWM
+3. Load to MRR → STG → DWH
+4. After successful DWH load: Update HWM = MAX(transaction_date)
+```
+
+
+### Idempotency
+```sql
+-- Safe to run multiple times
+INSERT INTO table VALUES (...)
+ON CONFLICT (id) DO UPDATE
+SET column = EXCLUDED.column;
+```
+
+### Pipeline Flow
+```
+┌─────────────────────────────────────┐
+│  Master ETL Pipeline (every 6 hrs) │
+└────────────────┬────────────────────┘
+                 │
+       ┌─────────┴─────────┐
+       │                   │
+       ↓                   ↓
+┌──────────────┐    ┌──────────────┐
+│ Operational  │    │ Monitor logs │
+│  → MRR       │    │ in DWH       │
+└──────┬───────┘    └──────────────┘
+       │
+       ↓
+┌──────────────┐
+│ MRR → STG    │
+└──────┬───────┘
+       │
+       ↓
+┌──────────────┐
+│ STG → DWH    │
+└──────────────┘
+```
+
+## 💡 Usage
+
+### Running Stored Procedures
+```sql
+-- Aggregate sales report
+CALL sp_aggregate_sales_report('2025-01-01', '2025-01-31');
+SELECT * FROM temp_sales_report;
+
+-- Refresh customer metrics
+CALL sp_refresh_customer_metrics();
+SELECT * FROM customer_metrics LIMIT 10;
+```
+
+### Using Analytical Functions
+```sql
+-- Customer average quantity
+SELECT fn_avg_quantity_per_customer(5);
+
+-- Product sales velocity
+SELECT fn_product_sales_velocity(10, 30);
+
+-- Top customers
+SELECT * FROM fn_top_customers(10);
+
+-- Product group performance
+SELECT fn_product_group_performance('Electronics', '2025-01-01', '2025-01-31');
+```
+
+### Monitoring ETL
+```sql
+-- Recent ETL runs
+SELECT * FROM vw_recent_etl_runs;
+
+-- Performance summary
+SELECT * FROM vw_etl_performance_summary;
+
+-- Failed processes
+SELECT * FROM etl_logs WHERE status = 'FAILED' ORDER BY start_time DESC;
+```
+
+## 📊 Monitoring
+
+### Airflow UI
+- **DAG Runs**: Monitor execution history
+- **Task Instances**: Debug individual tasks
+- **Logs**: View detailed execution logs
+
+### Database Monitoring
+```sql
+-- Check data freshness
+SELECT table_name, last_updated 
+FROM high_water_mark 
+ORDER BY last_updated DESC;
+
+-- Row counts by layer
+SELECT 'operational' as layer, COUNT(*) FROM sales
+UNION ALL
+SELECT 'mrr', COUNT(*) FROM mrr_fact_sales
+UNION ALL
+SELECT 'stg', COUNT(*) FROM stg_fact_sales
+UNION ALL
+SELECT 'dwh', COUNT(*) FROM dwh_fact_sales;
+```
+
+### Health Checks
+```bash
+# All containers running
+docker-compose ps
+
+# Database connections
+docker exec operational-db pg_isready
+docker exec dwh-db pg_isready
+
+# Airflow status
+curl http://localhost:8080/health
+```
+
+## 🐛 Troubleshooting
+
+### Containers not starting
+```bash
+# Check logs
+docker-compose logs -f
+
+# Restart services
+docker-compose restart
+
+# Clean restart
+docker-compose down -v
+docker-compose up -d
+```
+
+### Airflow DAG not appearing
+```bash
+# Check for syntax errors
+docker exec airflow-scheduler airflow dags list
+
+# Restart scheduler
+docker-compose restart airflow-scheduler
+```
+
+### Database connection issues
+```bash
+# Test connection
+docker exec -it dwh-db psql -U postgres -d dwh -c "SELECT 1;"
+
+# Check network
+docker network inspect data-engineer-network
+```
+
+### ETL failures
+```sql
+-- Check error logs
+SELECT * FROM etl_logs WHERE status = 'FAILED';
+
+-- View detailed error
+SELECT error_message FROM etl_logs WHERE log_id = <id>;
+```
+
+
