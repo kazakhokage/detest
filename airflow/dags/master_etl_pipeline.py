@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.operators.dummy import DummyOperator
 from datetime import datetime, timedelta
 
 default_args = {
@@ -20,8 +19,6 @@ with DAG(
     catchup=False,
     tags=['etl', 'master', 'orchestration'],
 ) as dag:
-    
-    start = DummyOperator(task_id='pipeline_start')
     
     # Stage 1: Operational → MRR
     trigger_operational_to_mrr = TriggerDagRunOperator(
@@ -53,7 +50,6 @@ with DAG(
         execution_date='{{ execution_date }}',
     )
     
-    end = DummyOperator(task_id='pipeline_complete')
     
     # Define pipeline flow
     start >> trigger_operational_to_mrr >> trigger_mrr_to_stg >> trigger_stg_to_dwh >> end

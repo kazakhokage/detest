@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.operators.dummy import DummyOperator
 from datetime import datetime, timedelta
 import sys
 import os
@@ -238,7 +237,6 @@ with DAG(
     tags=['etl', 'operational', 'mrr', 'delta-load'],
 ) as dag:
     
-    start = DummyOperator(task_id='start')
     
     extract_customers = PythonOperator(
         task_id='extract_customers_to_mrr',
@@ -258,7 +256,6 @@ with DAG(
         provide_context=True,
     )
     
-    end = DummyOperator(task_id='end')
     
     # Task dependencies
     start >> [extract_customers, extract_products] >> extract_sales >> end

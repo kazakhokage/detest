@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.operators.dummy import DummyOperator
 from datetime import datetime, timedelta, date
 import sys
 import os
@@ -322,7 +321,6 @@ with DAG(
     tags=['etl', 'stg', 'dwh', 'final'],
 ) as dag:
     
-    start = DummyOperator(task_id='start')
     
     load_date_dim = PythonOperator(
         task_id='load_date_dimension',
@@ -349,7 +347,6 @@ with DAG(
         python_callable=update_hwm_after_dwh_load,
     )
     
-    end = DummyOperator(task_id='end')
     
     # Task dependencies
     start >> load_date_dim >> [load_customers, load_products] >> load_sales >> update_hwm >> end
