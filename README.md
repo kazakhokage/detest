@@ -1,18 +1,4 @@
-
-## 📋 Table of Contents
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
-- [Database Layers](#database-layers)
-- [ETL Pipeline](#etl-pipeline)
-- [Usage](#usage)
-- [Monitoring](#monitoring)
-- [Troubleshooting](#troubleshooting)
-
-## 🎯 Overview
+## Overview
 
 This repo shows a solution to tech task:
 - **Multi-layer data warehouse** (Operational, MRR, STG, DWH)
@@ -22,7 +8,7 @@ This repo shows a solution to tech task:
 - **Comprehensive logging** and monitoring
 - **Idempotent operations** for data integrity
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────┐
@@ -55,31 +41,6 @@ This repo shows a solution to tech task:
 3. **STG** → Clean, standardize, derive attributes
 4. **DWH** → Add surrogate keys, implement SCD, optimize for analytics
 
-## ✨ Features
-
-### ETL Capabilities
-- ✅ Delta loading with High Water Mark
-- ✅ Idempotent operations (safe reruns)
-- ✅ Slowly Changing Dimensions (SCD Type 2)
-- ✅ Surrogate key management
-- ✅ Comprehensive error handling
-- ✅ Centralized ETL logging
-- ✅ Fact and dimension table patterns
-
-### Database Features
-- ✅ Multi-layer architecture (4 databases)
-- ✅ Proper indexing for performance
-- ✅ Foreign key constraints
-- ✅ Stored procedures with cursors
-- ✅ Analytical functions (KPI calculations)
-- ✅ Date dimension table
-
-### DevOps
-- ✅ Docker Compose for easy deployment
-- ✅ Apache Airflow for orchestration
-- ✅ Automated schema creation
-- ✅ Sample data generation
-- ✅ Health checks and monitoring
 
 ## 📦 Prerequisites
 
@@ -88,7 +49,7 @@ This repo shows a solution to tech task:
 - **Python** 3.10+ (for scripts)
 - **PostgreSQL Client** (optional, for manual queries)
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Clone and Navigate
 ```bash
@@ -162,48 +123,8 @@ SELECT COUNT(*) FROM dwh_dim_products WHERE is_current = TRUE;
 SELECT * FROM vw_recent_etl_runs;
 ```
 
-## 📁 Project Structure
 
-```
-data-engineer-project/
-├── docker-compose.yml          # Docker orchestration
-├── .env                        # Environment variables
-├── README.md                   # This file
-│
-├── sql/                        # Database schemas
-│   ├── operational/            # Source system
-│   │   └── 01_create_schema.sql
-│   ├── mrr/                    # Raw layer
-│   │   └── 01_create_schema.sql
-│   ├── stg/                    # Staging layer
-│   │   └── 01_create_schema.sql
-│   └── dwh/                    # Data warehouse
-│       ├── 01_create_schema.sql
-│       ├── 02_create_etl_logs.sql
-│       ├── 03_stored_procedures.sql
-│       └── 04_functions.sql
-│
-├── airflow/
-│   ├── dags/                   # Airflow DAGs
-│   │   ├── etl_operational_to_mrr.py
-│   │   ├── etl_mrr_to_stg.py
-│   │   ├── etl_stg_to_dwh.py
-│   │   ├── master_etl_pipeline.py
-│   │   ├── tasks/              # Task definitions
-│   │   └── utils/              # Shared utilities
-│   │       ├── config.py
-│   │       └── db_utils.py
-│   ├── logs/                   # Airflow logs
-│   └── plugins/                # Custom plugins
-│
-├── scripts/                    # Utility scripts
-│   └── seed_data.py           # Data generation
-│
-└── docs/                       # Documentation
-    └── architecture.md         # Architecture details
-```
-
-## 🗄️ Database Layers
+## Database Layers
 
 ### 1. Operational DB (OLTP)
 **Purpose**: Transactional source system
@@ -248,7 +169,6 @@ data-engineer-project/
 
 ### Idempotency
 ```sql
--- Safe to run multiple times
 INSERT INTO table VALUES (...)
 ON CONFLICT (id) DO UPDATE
 SET column = EXCLUDED.column;
